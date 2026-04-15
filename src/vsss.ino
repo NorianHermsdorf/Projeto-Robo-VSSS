@@ -24,7 +24,7 @@ bool estadoLed = false;
 bool carregando = false; 
 
 void setup() {
-  Serial.begin(115200); // 9600 é muito lento para ESP32
+  Serial.begin(115200);
   Dabble.begin("ROBO_VSSS");
 
   ledcAttach(IN1, freq, resolucao);
@@ -56,11 +56,9 @@ void loop() {
       int jX = map(rawX, -7, 7, -255, 255);
       int jY = map(rawY, -7, 7, -255, 255);
 
-      // Curva exponencial
       jX = (jX * abs(jX)) / 255;
       jY = (jY * abs(jY)) / 255;
 
-      // Mixagem Diferencial
       vLeft  = constrain(jY + jX, -180, 180); // Limite de 6V (aprox 70% de 8.4V)
       vRight = constrain(jY - jX, -180, 180);
     }
@@ -103,7 +101,7 @@ void setRGB(int r, int g, int b) {
 
 void gerenciarFeedbackBateria() {
   int leitura = analogRead(pinoADC);
-  // Ajuste o 3.12 conforme o seu divisor de tensão real
+
   float tensao = (leitura * 3.3 / 4095.0) * 3.12; 
   
   carregando = (tensao > 8.5); 
