@@ -6,7 +6,7 @@ Este repositório contém o desenvolvimento do firmware para um robô de traçã
 Atualmente em fase de aquisição de hardware e prototipagem. O firmware valida a resposta dos atuadores, telemetria e o fail-safe do sistema.
 
 ## Hardware Previsto
-* **Processador:** ESP32-C3 SuperMini (RISC-V).
+* **Processador:** ESP32-C3 SuperMini
 * **Atuadores:** Driver DRV8833 + 2x Motores N20 (6V 500RPM).
 * **Energia:** Bateria LiPo 2S (8.4V) + Step-down Mini 560 Pro (5V).
 * **Feedback:** LED RGB para status e divisor de tensão para monitoramento de carga.
