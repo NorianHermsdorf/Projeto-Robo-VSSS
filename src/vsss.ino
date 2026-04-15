@@ -2,42 +2,48 @@
 #define INCLUDE_GAMEPAD_MODULE
 #include <DabbleESP32.h>
 
-// Pinos Motores
-const int IN1 = 4;
-const int IN2 = 5;
-const int IN3 = 6;
-const int IN4 = 7;
+const int IN1 = 12;
+const int IN2 = 13;
+const int IN3 = 14;
+const int IN4 = 27;
 
-// Pinos LED RGB e ADC (Bateria)
-const int pinoADC = 1;
-const int pinoR = 10;
-const int pinoG = 20;
-const int pinoB = 21;
+const int canal1 = 0;
+const int canal2 = 1;
+const int canal3 = 2;
+const int canal4 = 3;
 
-// Configuração PWM
+const int pinoADC = 34;
+const int pinoR = 25;
+const int pinoG = 26;
+const int pinoB = 33;
+
 const int freq = 2000;
 const int resolucao = 8;
 
 unsigned long ultimaComunicacao = 0;
 unsigned long anteriorBlink = 0;
 bool estadoLed = false;
-bool carregando = false; 
 
 void setup() {
   Serial.begin(115200);
-  Dabble.begin("ROBO_VSSS");
+  
+  Dabble.begin("ROBO_VSSS"); 
 
-  ledcAttach(IN1, freq, resolucao);
-  ledcAttach(IN2, freq, resolucao);
-  ledcAttach(IN3, freq, resolucao);
-  ledcAttach(IN4, freq, resolucao);
+  ledcSetup(canal1, freq, resolucao);
+  ledcSetup(canal2, freq, resolucao);
+  ledcSetup(canal3, freq, resolucao);
+  ledcSetup(canal4, freq, resolucao);
 
-  // Configurar pinos do LED
+  ledcAttachPin(IN1, canal1);
+  ledcAttachPin(IN2, canal2);
+  ledcAttachPin(IN3, canal3);
+  ledcAttachPin(IN4, canal4);
+
   pinMode(pinoR, OUTPUT);
   pinMode(pinoG, OUTPUT);
   pinMode(pinoB, OUTPUT);
 
-  Serial.println("Sistema Iniciado...");
+  Serial.println("Iniciado");
 }
 
 void loop() {
@@ -46,28 +52,26 @@ void loop() {
   int vLeft = 0;
   int vRight = 0;
 
-  if (GamePad.isConnected()) {
-    int rawX = GamePad.getXaxisData();
-    int rawY = GamePad.getYaxisData();
+  int rawX = GamePad.getXaxisData();
+  int rawY = GamePad.getYaxisData();
 
-    if (rawX != 0 || rawY != 0) {
-      ultimaComunicacao = millis(); // Só reseta se houver movimento
-
-      int jX = map(rawX, -7, 7, -255, 255);
-      int jY = map(rawY, -7, 7, -255, 255);
-
-      jX = (jX * abs(jX)) / 255;
-      jY = (jY * abs(jY)) / 255;
-
-      vLeft  = constrain(jY + jX, -180, 180); // Limite de 6V (aprox 70% de 8.4V)
-      vRight = constrain(jY - jX, -180, 180);
-    }
+  if (rawX != 0 || rawY != 0) {
+    ultimaComunicacao = millis();
+    int jX = map(rawX, -7, 7, -255, 255);
+    int jY = map(rawY, -7, 7, -255, 255);
+    jX = (jX * abs(jX)) / 255;
+    jY = (jY * abs(jY)) / 255;
+    vLeft  = constrain(jY + jX, -180, 180); 
+    vRight = constrain(jY - jX, -180, 180);
+    Serial.println("X: ");
+    Serial.println(jX);
+    Serial.println("Y: ");
+    Serial.println(jY);
+    
   }
 
-  // Fail-safe: Se ficar 300ms sem comando, zera os motores
   if (millis() - ultimaComunicacao > 300) {
-    vLeft = 0;
-    vRight = 0;
+    vLeft = 0; vRight = 0;
   }
 
   setMotor(vLeft, vRight);
@@ -75,24 +79,24 @@ void loop() {
 }
 
 void setMotor(int left, int right) {
-  controlMotor(IN1, IN2, left);
-  controlMotor(IN3, IN4, right);
+  controlMotor(left, canal1, canal2);
+  controlMotor(right, canal3, canal4);
 }
 
-void controlMotor(int pinA, int pinB, int speed) {
+void controlMotor(int speed, int chA, int chB) {
   if (speed > 20) { 
-    ledcWrite(pinA, speed);
-    ledcWrite(pinB, 0);
+    ledcWrite(chA, speed);
+    ledcWrite(chB, 0);
   } else if (speed < -20) {
-    ledcWrite(pinA, 0);
-    ledcWrite(pinB, -speed);
+    ledcWrite(chA, 0);
+    ledcWrite(chB, -speed);
   } else {
-    // Freio ativo para precisão no VSSS
-    ledcWrite(pinA, 0); 
-    ledcWrite(pinB, 0);
+    ledcWrite(chA, 0); 
+    ledcWrite(chB, 0);
   }
 }
 
+// Mantenha setRGB e gerenciarFeedbackBateria igual antes...
 void setRGB(int r, int g, int b) {
   analogWrite(pinoR, r);
   analogWrite(pinoG, g);
@@ -101,22 +105,17 @@ void setRGB(int r, int g, int b) {
 
 void gerenciarFeedbackBateria() {
   int leitura = analogRead(pinoADC);
-
   float tensao = (leitura * 3.3 / 4095.0) * 3.12; 
-  
-  carregando = (tensao > 8.5); 
-
-  if (carregando) {
-    setRGB(0, 0, 255); // Azul fixo carregando
+  if (tensao > 8.5) {
+    setRGB(0, 0, 255);
   } else {
     if (millis() - anteriorBlink >= 500) {
       anteriorBlink = millis();
       estadoLed = !estadoLed;
-      
       if (estadoLed) {
-        if (tensao > 7.6) setRGB(0, 255, 0);      // Verde
-        else if (tensao > 7.1) setRGB(255, 100, 0); // Laranja
-        else setRGB(255, 0, 0);                  // Vermelho
+        if (tensao > 7.6) setRGB(0, 255, 0);
+        else if (tensao > 7.1) setRGB(255, 100, 0);
+        else setRGB(255, 0, 0);
       } else {
         setRGB(0, 0, 0);
       }
